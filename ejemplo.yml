@@ -1,0 +1,108 @@
+# 1. Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: giraldo-moran
+
+---
+
+# 2. Deployment con 3 réplicas de nginx:alpine
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+  namespace: giraldo-moran
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:alpine
+        ports:
+        - containerPort: 80
+        volumeMounts:
+        - name: nginx-logs
+          mountPath: /var/log/nginx
+      volumes:
+      - name: nginx-logs
+        persistentVolumeClaim:
+          claimName: nginx-log-pvc
+
+---
+
+# 3. ConfigMap con nombres, apellidos y edad
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: personal-info
+  namespace: giraldo-moran
+data:
+  NOMBRES: Pablo Andre
+  APELLIDOS: Giraldo Moran
+  EDAD: "25"
+
+---
+
+# 4. Secret para "ORQUESTADORES"
+apiVersion: v1
+kind: Secret
+metadata:
+  name: orquestadores-secret
+  namespace: giraldo-moran
+type: Opaque
+data:
+  ORQUESTADORES: T1JRVUVTVEFET1JFUw== # Base64 de "Orquestadores"
+
+---
+
+# 5. PersistentVolume para logs de Nginx
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: nginx-log-pv
+spec:
+  capacity:
+    storage: 5Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /mnt/nginx-logs
+
+---
+
+# 6. PersistentVolumeClaim para usar el PV
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nginx-log-pvc
+  namespace: giraldo-moran
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+
+---
+
+# 7. Service para exponer los Pods
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-service
+  namespace: giraldo-moran
+spec:
+  selector:
+    app: nginx
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+  type: NodePort
